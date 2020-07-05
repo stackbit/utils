@@ -4,7 +4,9 @@
   "description": "Stackbit utilities",
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "version-minor": "npm version minor -m \"bumped version to v%s\"",
+    "version-patch": "npm version patch -m \"bumped version to v%s\""
   },
   "repository": {
     "type": "git",
