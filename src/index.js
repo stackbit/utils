@@ -8,15 +8,20 @@ const _ = require('lodash');
 module.exports = {
     forEachPromise,
     mapPromise,
+    findPromise,
     readDirRecursively,
     getFirst,
     append,
     concat,
-    copyIfNotSet,
     copy,
+    copyIfNotSet,
     rename,
     failFunctionWithTag,
     assertFunctionWithFail,
+    mapDeep,
+    fieldPathToString,
+    getFirstExistingFile,
+    parseFirstExistingFile,
     parseFile,
     parseDataByFilePath,
     parseMarkdownWithFrontMatter,
@@ -37,7 +42,6 @@ function forEachPromise(array, callback, thisArg) {
                 resolve();
             }
         }
-
         next(0);
     });
 }
@@ -59,6 +63,27 @@ function mapPromise(array, callback, thisArg) {
             }
         }
 
+        next(0);
+    });
+}
+
+function findPromise(array, callback, thisArg) {
+    return new Promise((resolve, reject) => {
+        function next(index) {
+            if (index < array.length) {
+                callback.call(thisArg, array[index], index, array).then(result => {
+                    if (result) {
+                        resolve(array[index]);
+                    } else {
+                        next(index + 1);
+                    }
+                }).catch(error => {
+                    reject(error);
+                });
+            } else {
+                resolve();
+            }
+        }
         next(0);
     });
 }
@@ -112,12 +137,6 @@ function concat(object, path, value) {
     _.set(object, path, _.get(object, path).concat(value));
 }
 
-function copyIfNotSet(sourceObject, sourcePath, targetObject, targetPath, transform) {
-    if (!_.has(targetObject, targetPath)) {
-        copy(sourceObject, sourcePath, targetObject, targetPath, transform);
-    }
-}
-
 function copy(sourceObject, sourcePath, targetObject, targetPath, transform) {
     if (_.has(sourceObject, sourcePath)) {
         let value = _.get(sourceObject, sourcePath);
@@ -125,6 +144,12 @@ function copy(sourceObject, sourcePath, targetObject, targetPath, transform) {
             value = transform(value);
         }
         _.set(targetObject, targetPath, value);
+    }
+}
+
+function copyIfNotSet(sourceObject, sourcePath, targetObject, targetPath, transform) {
+    if (!_.has(targetObject, targetPath)) {
+        copy(sourceObject, sourcePath, targetObject, targetPath, transform);
     }
 }
 
@@ -151,6 +176,106 @@ function assertFunctionWithFail(fail) {
             fail(message);
         }
     }
+}
+
+/**
+ * Deeply maps the passed `value` by recursively calling the `iteratee` on
+ * value's children. The value returned from the iteratee is used to map the
+ * children.
+ *
+ * The iteratee is invoked with three arguments - the `value` being iterated,
+ * the `fieldPath` of the current `value` relative to the original passed value,
+ * and the `stack` of ancestors of the current `value`.
+ *
+ * For the first time the `iterate` will be called with the original `value`
+ * and empty arrays for `fieldPath` and `stack`.
+ *
+ * In other words, any `value` passed to the iteratee (except the first call,
+ * and assuming the ancestors keys were not mapped)
+ * will be equal to: `_.get(originalValue, fieldPath)`
+ *
+ * The recursion is called in pre-order depth-first-search. Meaning, the
+ * iteratee is called first on parent nodes and then on its children. Therefore
+ * if iteratee maps/replaces the parent node, then the children of the replaced
+ * node will be traversed.
+ *
+ * @example
+ * mapDeep({ prop: 'foo', arr: [ 'bar' , 1, 2 ] }, (value) => {
+ *     if (_.isString(value)) return '__' + value;
+ *     if (_.isNumber(value)) return value * 10;
+ *     return value;
+ * })
+ * => { prop: '__foo', arr: [ '__bar', 10, 20 ] }
+ *
+ * mapDeep({ prop: 'foo', arr: [ 'bar' ] }, (value, fieldPath) => {
+ *     if ((_.isString(value)) return value + '__' + fieldPath.join('.');
+ *     return value;
+ * })
+ * => { prop: 'foo__prop', arr: [ 'bar__arr.0' ] }
+ *
+ * @param {*} value A value to map
+ * @param {Function} iteratee Function (value: any, fieldPath: Array, stack: Array)
+ * @param {object} [options]
+ * @param {boolean} [options.iterateCollections] Default: true
+ * @param {boolean} [options.iterateScalars] Default: true
+ * @param {boolean} [options.postOrder] Change the invocation of iteratee to post-order depth-first-search. Default: false
+ * @returns {*}
+ */
+function mapDeep(value, iteratee, options = {}, _keyPath = [], _objectStack = []) {
+    const postOrder = _.get(options, 'postOrder', false);
+    let iterate;
+    if (_.isPlainObject(value) || _.isArray(value)) {
+        iterate = _.get(options, 'iterateCollections', true);
+    } else {
+        iterate = _.get(options, 'iterateScalars', true);
+    }
+    if (iterate && !postOrder) {
+        value = iteratee(value, _keyPath, _objectStack);
+    }
+    const childrenIterator = (val, key) => {
+        return mapDeep(val, iteratee, options, _.concat(_keyPath, key), _.concat(_objectStack, value));
+    };
+    if (_.isPlainObject(value)) {
+        value = _.mapValues(value, childrenIterator);
+    } else if (_.isArray(value)) {
+        value = _.map(value, childrenIterator);
+    }
+    if (iterate && postOrder) {
+        value = iteratee(value, _keyPath, _objectStack);
+    }
+    return value;
+}
+
+function fieldPathToString(fieldPath) {
+    return _.reduce(fieldPath, (accumulator, fieldName, index) => {
+        if (_.isString(fieldName) && /\W/.test(fieldName)) {
+            // field name is a string with non alphanumeric character
+            accumulator += `['${fieldName}']`;
+        } else if (_.isNumber(fieldName)) {
+            accumulator += `[${fieldName}]`;
+        } else {
+            if (index > 0) {
+                accumulator += '.';
+            }
+            accumulator += fieldName;
+        }
+        return accumulator;
+    }, '');
+}
+
+function getFirstExistingFile(fileNames, inputDir) {
+    const filePaths = _.map(fileNames, fileName => path.resolve(inputDir, fileName));
+    return findPromise(filePaths, (filePath) => fse.pathExists(filePath));
+}
+
+function parseFirstExistingFile(fileNames, inputDir) {
+    return getFirstExistingFile(fileNames, inputDir).then(filePath => {
+        if (filePath) {
+            return parseFile(filePath);
+        } else {
+            return null;
+        }
+    });
 }
 
 async function parseFile(filePath) {
