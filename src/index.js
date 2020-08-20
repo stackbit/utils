@@ -233,7 +233,7 @@ function mapDeep(value, iteratee, options = {}, _keyPath = [], _objectStack = []
         value = iteratee(value, _keyPath, _objectStack);
     }
     const childrenIterator = (val, key) => {
-        return mapDeep(val, iteratee, options, _.concat(_keyPath, key), _.concat(_objectStack, value));
+        return mapDeep(val, iteratee, options, _.concat(_keyPath, key), _.concat(_objectStack, [value]));
     };
     if (_.isPlainObject(value)) {
         value = _.mapValues(value, childrenIterator);
