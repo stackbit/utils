@@ -4,6 +4,8 @@ const toml = require('@iarna/toml');
 const fse = require('fs-extra');
 const _ = require('lodash');
 
+const TaskQueue = require('./task-queue');
+
 
 module.exports = {
     forEachPromise,
@@ -26,7 +28,8 @@ module.exports = {
     parseDataByFilePath,
     parseMarkdownWithFrontMatter,
     outputData,
-    stringifyDataByFilePath
+    stringifyDataByFilePath,
+    TaskQueue
 };
 
 function forEachPromise(array, callback, thisArg) {
@@ -219,6 +222,8 @@ function assertFunctionWithFail(fail) {
  * @param {boolean} [options.iterateCollections] Default: true
  * @param {boolean} [options.iterateScalars] Default: true
  * @param {boolean} [options.postOrder] Change the invocation of iteratee to post-order depth-first-search. Default: false
+ * @param {Array} [_keyPath] For internal recursive use
+ * @param {Array} [_objectStack] For internal recursive use
  * @returns {*}
  */
 function mapDeep(value, iteratee, options = {}, _keyPath = [], _objectStack = []) {
