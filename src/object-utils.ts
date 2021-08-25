@@ -59,7 +59,7 @@ export function concat(object: any, path: PropertyPath, value: any) {
  * @param targetPath
  * @param transform
  */
-export function copy(sourceObject: any, sourcePath: PropertyPath, targetObject: any, targetPath: PropertyPath, transform: (value: any) => any) {
+export function copy(sourceObject: any, sourcePath: PropertyPath, targetObject: any, targetPath: PropertyPath, transform?: (value: any) => any) {
     if (_.has(sourceObject, sourcePath)) {
         let value = _.get(sourceObject, sourcePath);
         if (transform) {
@@ -84,7 +84,7 @@ export function copy(sourceObject: any, sourcePath: PropertyPath, targetObject: 
  * @param targetPath
  * @param transform
  */
-export function copyIfNotSet(sourceObject: any, sourcePath: PropertyPath, targetObject: any, targetPath: PropertyPath, transform: (value: any) => any) {
+export function copyIfNotSet(sourceObject: any, sourcePath: PropertyPath, targetObject: any, targetPath: PropertyPath, transform?: (value: any) => any) {
     if (!_.has(targetObject, targetPath)) {
         copy(sourceObject, sourcePath, targetObject, targetPath, transform);
     }
