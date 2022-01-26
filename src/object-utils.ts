@@ -111,6 +111,10 @@ export function rename(object: any, oldPath: PropertyPath, newPath: PropertyPath
     }
 }
 
+export function omitByNil(object: any) {
+    return _.omitBy(object, _.isNil);
+}
+
 /**
  * Deeply maps the passed `value` by recursively calling the `iteratee` with the
  * original `value` and then its properties if the `value` is an object or its
